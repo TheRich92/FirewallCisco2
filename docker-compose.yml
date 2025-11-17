@@ -122,26 +122,25 @@ services:
 #        apt-get install -y -qq netcat-openbsd || true;
 #        exec docker-php-entrypoint apache2-foreground'
 
-ftp_dmz:
-  image: python:3.11-slim
-  container_name: ftp_dmz
-  hostname: ftp_dmz
-  working_dir: /srv/ftp
-  cap_add: [NET_ADMIN]
-  networks:
-    dmz_net:
-      ipv4_address: 10.30.0.50
-  volumes:
-    - ./services/ftp_dmz/data:/srv/ftp
-    - ./services/ftp_dmz/ftp_server.py:/srv/ftp/ftp_server.py
-  command: >
-    bash -lc "
-      pip install -q pyftpdlib &&
-      ip route del default 2>/dev/null || true;
-      ip route add default via 10.30.0.254 dev eth0;
-      python /srv/ftp/ftp_server.py
-    "
-  tty: true
+  ftp_dmz:
+    image: python:3.11-slim
+    container_name: ftp_dmz
+    hostname: ftp_dmz
+    working_dir: /srv/ftp
+    cap_add: [NET_ADMIN]
+    networks:
+      dmz_net:
+        ipv4_address: 10.30.0.50
+    volumes:
+      - ./services/ftp_dmz/data:/srv/ftp
+    command: >
+      bash -lc "
+        pip install -q pyftpdlib;
+        ip route del default 2>/dev/null || true;
+        ip route add default via 10.30.0.254 dev eth0;
+        python /srv/ftp/ftp_server.py
+      "
+    tty: true
 
   ssh_dmz:
     image: debian:12-slim
