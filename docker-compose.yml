@@ -7,6 +7,7 @@ services:
     volumes:
       - ./router/router-entrypoint.sh:/router-entrypoint.sh:ro
       - ./router/router-config:/router-config:ro
+    entrypoint: ["bash", "/router-entrypoint.sh"]
     networks:
       wan_net: {}
       lan_net:
@@ -64,7 +65,7 @@ services:
     image: debian:12-slim
     container_name: pc_outside_wan
     hostname: pc_outside_wan
-    command: ["bash","-lc","apt-get update -qq && apt-get install -y -qq iproute2 curl iputils-ping netcat-openbsd >/dev/null && tail -f /dev/null"]
+    command: ["bash","-lc","apt-get update -qq && apt-get install -y -qq iproute2 curl iputils-ping netcat-openbsd nmap >/dev/null && tail -f /dev/null"]
     networks:
       wan_net: {}
     tty: true
@@ -101,47 +102,46 @@ services:
       - ./services/dvwa/db:/var/lib/mysql
     networks:
       dmz_net:
-        ipv4_address: 10.30.0.30
+        ipv4_address: 10.30.0.31
     tty: true
 
-#dvwa:
-#    image: ghcr.io/digininja/dvwa:latest
-#    container_name: dvwa
-#    depends_on:
-#      - dvwa_db
-#    restart: unless-stopped
-#    networks:
-#      dmz_net:
-#        ipv4_address: 10.20.0.21
-    # DVWA écoute en 80 en interne; pas de publication de port ici
-    # (facultatif) Si tu as vraiment besoin de netcat dans ce conteneur :
-#    command: >
-#      bash -lc '
-#        export DEBIAN_FRONTEND=noninteractive;
-#        apt-get update -qq || true;
-#        apt-get install -y -qq netcat-openbsd || true;
-#        exec docker-php-entrypoint apache2-foreground'
-
-  ftp_dmz:
-    image: python:3.11-slim
-    container_name: ftp_dmz
-    hostname: ftp_dmz
-    working_dir: /srv/ftp
+  dvwa:
+    image: ghcr.io/digininja/dvwa:latest
+    container_name: dvwa
+    depends_on:
+      - dvwa_db
+    restart: unless-stopped
     cap_add: [NET_ADMIN]
     networks:
       dmz_net:
-        ipv4_address: 10.30.0.50
-    volumes:
-      - ./services/ftp_dmz/data:/srv/ftp
+        ipv4_address: 10.30.0.30
+    ports:
+      - "8080:80"
+    # DVWA écoute en 80 en interne; pas de publication de port ici
+    # (facultatif) Si tu as vraiment besoin de netcat dans ce conteneur :
     command: >
-      bash -lc "
-        pip install -q pyftpdlib;
-        ip route del default 2>/dev/null || true;
-        ip route add default via 10.30.0.254 dev eth0;
-        python /srv/ftp/ftp_server.py
-      "
+      bash -lc '
+        export DEBIAN_FRONTEND=noninteractive;
+        apt-get update -qq || true;
+        apt-get install -y -qq iproute2 netcat-openbsd || true;
+        ip route del default; ip route add default via 10.30.0.254 dev eth0; ip route;
+        exec docker-php-entrypoint apache2-foreground'
     tty: true
 
+  ftp_dmz:
+    build: ./services/ftp_dmz
+    container_name: ftp_dmz
+    restart: unless-stopped
+
+    networks:
+      dmz_net:
+        ipv4_address: 10.30.0.50
+
+    volumes:
+      - ./services/ftp_dmz/data:/srv/ftp
+
+
+  
   ssh_dmz:
     image: debian:12-slim
     container_name: ssh_dmz
